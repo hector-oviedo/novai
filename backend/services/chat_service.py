@@ -1,4 +1,5 @@
 # services/chat_service.py
+
 import uuid
 import json
 from typing import Optional
@@ -20,41 +21,41 @@ class ChatService:
         user_message: str
     ):
         """
-        Yields JSON lines of the form:
+        Streams JSON lines of the form:
           { "type": "thinking"|"public"|"error", "chunk": "..." }
-        in real time.
-
         Steps:
           1) Get/create session
-          2) Save user's message
-          3) Stream tokens
-            - If we see "LLMError: ..." we treat it as an error event
-          4) Save final assistant message or error message
+          2) Insert user message in DB
+          3) Call LLMService with entire conversation (multi-turn memory)
+          4) Parse tokens for <think> tags
+          5) Store final assistant message
         """
+
         # 1) get or create session
         session_obj = self._get_or_create_session(db, user_id, session_id)
 
-        # 2) Insert user message
+        # 2) Insert user message so it's in the DB
         self._add_user_message(db, session_obj.session_id, user_message)
 
-        # Prepare buffers for final content
+        # Prepare buffers for final text
         public_buffer = []
         think_buffer = []
         in_think_mode = False
 
-        # 3) Stream tokens
-        for token in self.llm_service.stream_infer(user_message):
-            # DETECT if it's an LLM error
-            #if token.startswith("LLMError:"):
-                #error_msg = token.replace("LLMError:", "").strip()
-                # 3a) yield an "error" chunk
-                #yield self._json_chunk("error", error_msg)
-                # 3b) store error in DB
-                #self._add_error_message(db, session_obj.session_id, error_msg)
-                # 3c) stop streaming entirely
-                #return
+        # 3) Stream from LLM, passing the entire conversation
+        token_generator = self.llm_service.stream_infer(db, session_id)
 
-            # Otherwise, normal token => parse <think>...
+        for token in token_generator:
+            # 3a) Check if it's an LLM error token
+            if token.startswith("LLMError:"):
+                error_msg = token.replace("LLMError:", "").strip()
+                # yield an "error" chunk
+                yield self._json_chunk("error", error_msg)
+                # store error in DB
+                self._add_error_message(db, session_obj.session_id, error_msg)
+                return  # stop streaming entirely
+
+            # 4) Otherwise parse <think> tags
             cursor = 0
             while cursor < len(token):
                 if not in_think_mode:
@@ -85,28 +86,27 @@ class ChatService:
                         cursor = idx + len("</think>")
                         in_think_mode = False
 
-        # 4) If we get here, we have a normal result, so store final assistant message
+        # 5) Once streaming finishes normally, store the final assistant message
         final_public = "".join(public_buffer)
         final_think = "".join(think_buffer)
         self._add_assistant_message(db, session_obj.session_id, final_public, final_think)
 
-    # ---------------- Private Methods ------------------
+    # -------------- Private Methods --------------
 
     def _get_or_create_session(self, db: Session, user_id: str, session_id: str):
         sess = db.query(ChatSession).filter_by(session_id=session_id, user_id=user_id).first()
         if sess:
             return sess
-        new_sess = ChatSession(
-            session_id=session_id,
-            user_id=user_id,
-            session_title=session_id
-        )
+        new_sess = ChatSession(session_id=session_id, user_id=user_id, session_title=session_id)
         db.add(new_sess)
         db.commit()
         db.refresh(new_sess)
         return new_sess
 
     def _add_user_message(self, db: Session, session_id: str, content: str):
+        """
+        Insert a user message so MemoryService can find it in the DB.
+        """
         msg = SessionMessage(
             session_id=session_id,
             sender="user",
@@ -127,20 +127,15 @@ class ChatService:
 
     def _add_error_message(self, db: Session, session_id: str, error_text: str):
         """
-        Insert an 'error' message in DB. 
-        We'll label sender="error" so the UI can highlight it differently.
+        Insert an 'error' message in DB so we track inference errors in the conversation.
         """
-        msg = SessionMessage(
-            session_id=session_id,
-            sender="error",
-            content=error_text,
-            think=""
-        )
+        msg = SessionMessage(session_id=session_id, sender="error", content=error_text, think="")
         db.add(msg)
         db.commit()
 
     def _json_chunk(self, chunk_type: str, text: str) -> bytes:
         payload = {"type": chunk_type, "chunk": text}
         return (json.dumps(payload) + "\n").encode("utf-8")
+
 
 chat_service = ChatService()
