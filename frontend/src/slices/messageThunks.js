@@ -1,87 +1,87 @@
-import { v4 as uuidv4 } from 'uuid';
-import { createAsyncThunk } from '@reduxjs/toolkit';
-import { setInteractionState, setSession, addOutputMessage, addErrorMessage, InteractionState, startStreamingOutput } from './messageSlice';
-import { processStreamingResponse } from '../helpers/messageStreamHelper';
+// src/slices/messageThunks.js
+import { createAsyncThunk } from "@reduxjs/toolkit";
+import { addUserMessage, addStreamChunk, finalizeAssistantMessage } from "./messageSlice";
+import apiClient from "../apiClient";
 
-
-/**
- * sendStreamMessage
- * Dispatches inference request with optional file attachment.
- */
+// 1) Streaming
 export const sendStreamMessage = createAsyncThunk(
-    'messages/sendStreamMessage',
-    async ({ userInput }, { dispatch, getState, rejectWithValue }) => {
-      try {
-        const state = getState();
-        let sessionId = state.messages.actualSession;
-  
-        // If no session exists, generate one
-        if (!sessionId) {
-          sessionId = uuidv4(); // Generate random session ID
-          dispatch(setSession(sessionId));
-        }
-  
-        dispatch(setInteractionState('inference'));
-  
-        // Start the streaming output message
-        dispatch(startStreamingOutput());
-  
-        const response = await fetch('http://127.0.0.1:3000/chat/stream', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sessionId,
-            messages: [{ role: 'user', text: userInput }],
-          }),
-        });
-  
-        if (!response.ok) throw new Error('Streaming request failed');
-  
-        // Get the currentStreamingMessageId from Redux state
-        const { currentStreamingMessageId } = getState().messages;
-  
-        // Process the streaming response
-        await processStreamingResponse(response, dispatch, currentStreamingMessageId, sessionId);
-  
-        dispatch(setInteractionState('ready'));
-      } catch (err) {
-        const errMsg = err?.message || 'Unknown error';
-        console.error(errMsg);
-        dispatch(setInteractionState('error'));
-        return rejectWithValue(errMsg);
-      }
-    }
-  );
+  "messages/sendStreamMessage",
+  async ({ sessionId, userMessage }, { dispatch, rejectWithValue }) => {
+    try {
+      // Insert user message in Redux
+      dispatch(addUserMessage({ sessionId, text: userMessage }));
 
-  /**
- * sendMessage (non-streaming)
- * Dispatches inference request with optional file attachment.
- */
-export const sendMessage = createAsyncThunk(
-    'messages/sendMessage',
-    async ({ userInput, file }, { dispatch, rejectWithValue }) => {
-      dispatch(setInteractionState(InteractionState.INFERENCE));
-      try {
-        const formData = new FormData();
-        formData.append('message', userInput);
-        if (file) formData.append('attachment', file);
-  
-        const response = await fetch('http://127.0.0.1:3000/inference', {
-          method: 'POST',
-          body: formData,
-        });
-        if (!response.ok) throw new Error('Non-streaming request failed');
-  
-        const { message } = await response.json();
-        dispatch(addOutputMessage(message));
-        dispatch(setInteractionState(InteractionState.READY));
-      } catch (err) {
-        const errMsg = err?.message || 'Unknown error';
-        dispatch(addErrorMessage(errMsg));
-        dispatch(setInteractionState(InteractionState.ERROR));
-        return rejectWithValue(errMsg);
+      // Start streaming
+      const response = await fetch("http://localhost:8000/chat/stream", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, user_message: userMessage }),
+      });
+
+      if (!response.ok) throw new Error("Stream request failed");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      let done = false;
+      let partial = "";
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        if (value) {
+          partial += decoder.decode(value, { stream: true });
+          let lines = partial.split("\n");
+          partial = lines.pop(); // leftover partial line
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            const parsed = JSON.parse(line); // { type, chunk }
+            dispatch(addStreamChunk({
+              sessionId,
+              chunkType: parsed.type,
+              chunk: parsed.chunk
+            }));
+          }
+        }
       }
+
+      dispatch(finalizeAssistantMessage({ sessionId }));
+    } catch (err) {
+      return rejectWithValue(err.message);
     }
+  }
+);
+
+// 2) Update message
+export const updateMessage = createAsyncThunk(
+  "messages/updateMessage",
+  async ({ sessionId, messageId, newContent }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.put(
+        `/sessions/${sessionId}/messages/${messageId}`,
+        { content: newContent }
+      );
+      return response.data; 
+      // e.g. { id, sender, content, think }
+    } catch (err) {
+      return rejectWithValue(err.response?.data || "Failed to update message");
+    }
+  }
+);
+
+// 3) Delete message
+export const deleteMessage = createAsyncThunk(
+  "messages/deleteMessage",
+  async ({ sessionId, messageId }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.delete(
+        `/sessions/${sessionId}/messages/${messageId}`
+      );
+      // returns { message: "Message X deleted" }
+      return messageId; 
+    } catch (err) {
+      return rejectWithValue(err.response?.data || "Failed to delete message");
+    }
+  }
 );
