@@ -1,6 +1,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import apiClient from "../apiClient";
-
+import { updateProfile } from "./userSlice";
 /**
  * SIGN UP: calls POST /auth/register
  * The backend sets a secure HttpOnly cookie, 
@@ -74,6 +74,21 @@ function handleApiError(error) {
     description: "Unexpected error",
   };
 }
+
+export const getProfile = createAsyncThunk(
+  "user/getProfile",
+  async (_, { dispatch, rejectWithValue }) => {
+    try {
+      const resp = await apiClient.get("/auth/profile");
+      // Suppose it returns: { user_id, username, email }
+      // We can store those in user slice
+      dispatch(updateProfile(resp.data));
+      return resp.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || "Failed to get profile");
+    }
+  }
+);
 
 export const checkAuth = createAsyncThunk("user/checkAuth", async (_, { rejectWithValue }) => {
   try {

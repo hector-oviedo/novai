@@ -19,7 +19,13 @@ export const sendStreamMessage = createAsyncThunk(
         body: JSON.stringify({ session_id: sessionId, user_message: userMessage }),
       });
 
-      if (!response.ok) throw new Error("Stream request failed");
+      if (!response.ok) {
+        // If it's a 401, dispatch sessionExpired
+        if (response.status === 401) {
+          dispatch({ type: "user/sessionExpired" });
+        }
+        throw new Error(`Stream request failed (HTTP ${response.status})`);
+      }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();

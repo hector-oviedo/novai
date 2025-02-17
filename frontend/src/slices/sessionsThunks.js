@@ -31,7 +31,7 @@ export const fetchSessionById = createAsyncThunk(
     try {
       dispatch(clearMessages());
       const response = await apiClient.get(`/sessions/${sessionId}/messages`, {
-        params: { limit: 5 }
+        params: { limit: 6 }
       });
       // returns an array of messages
       dispatch(addFetchedMessages(response.data));

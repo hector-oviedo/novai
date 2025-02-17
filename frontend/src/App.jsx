@@ -4,7 +4,7 @@ import { Box } from "@mui/material";
 import { useDispatch, useSelector } from "react-redux";
 import { SessionExpiredDialog } from "./components/common/SessionExpiredDialog";
 
-import { checkAuth } from "./slices/userThunks";
+import { checkAuth, getProfile } from "./slices/userThunks";
 import { LoginPage } from "./components/auth/LoginPage";
 import { RegisterPage } from "./components/auth/RegisterPage";
 import { SettingsWidget } from "./components/settings/SettingsWidget";
@@ -31,7 +31,7 @@ export const App = () => {
       dispatch(checkAuth())
         .unwrap()
         .then((profile) => {
-          // If success => user is indeed valid
+          dispatch(getProfile())
         })
         .catch(() => {
           // If 401 => the interceptor sets sessionExpired => do nothing

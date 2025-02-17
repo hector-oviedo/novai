@@ -41,15 +41,27 @@ export const userSlice = createSlice({
       // Resets the flag
       state.sessionExpired = false;
     },
+    updateProfile: (state, action) => {
+      const { user_id, username } = action.payload;
+      state.userId = user_id || state.userId;
+      state.username = username || state.username;
+      if (user_id) {
+        state.logged = true;
+      }
+      if (username) {
+        localStorage.setItem("username", username);
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
       .addCase(loginUser.fulfilled, (state, action) => {
-        state.userId = action.payload.user_id;
-        state.username = action.payload.username;
+        const { user_id, username } = action.payload;
+        state.userId = user_id;
+        state.username = username || "";
         state.logged = true;
-        localStorage.setItem("userId", action.payload.user_id);
-        localStorage.setItem("username", action.payload.username);
+        localStorage.setItem("userId", user_id);
+        localStorage.setItem("username", username || "");
         localStorage.setItem("logged", "true");
       })
       .addCase(signUpUser.fulfilled, (state, action) => {
@@ -71,5 +83,5 @@ export const userSlice = createSlice({
   },
 });
 
-export const { logout, localLogout, sessionExpired, dismissSessionExpired } = userSlice.actions;
+export const { logout, localLogout, sessionExpired, dismissSessionExpired, updateProfile } = userSlice.actions;
 export default userSlice.reducer;
