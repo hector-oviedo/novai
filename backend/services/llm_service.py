@@ -36,7 +36,9 @@ class LLMService:
 
             # Log them for debugging
             for i, m in enumerate(messages):
-                snippet = (m.content[:80] + "...") if len(m.content) > 80 else m.content
+                # Safeguard in case content is None
+                content_str = m.content if m.content is not None else ""
+                snippet = (content_str[:80] + "...") if len(content_str) > 80 else content_str
                 logger.debug(f"[{i}] role={m.role}, content={snippet}")
 
             # 2) Stream partial tokens

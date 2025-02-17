@@ -75,15 +75,29 @@ def delete_session(
 ):
     """
     DELETE /sessions/{session_id}
-    Removes a session if owned by the user.
+    Removes a session if owned by the user,
+    plus all messages, doc attachments, tool attachments.
     """
     session_obj = db.query(ChatSession).filter_by(session_id=session_id, user_id=user_id).first()
     if not session_obj:
         raise HTTPException(status_code=404, detail="Session not found or not owned by user.")
 
+    # 1) remove all messages
+    db.query(SessionMessage).filter_by(session_id=session_id).delete()
+
+    # 2) remove document attachments
+    from models.session_document import SessionDocument
+    db.query(SessionDocument).filter_by(session_id=session_id).delete()
+
+    # 3) remove tool attachments
+    from models.session_tool import SessionTool
+    db.query(SessionTool).filter_by(session_id=session_id).delete()
+
+    # 4) remove the session itself
     db.delete(session_obj)
     db.commit()
-    return {"message": f"Session {session_id} deleted"}
+
+    return {"message": f"Session {session_id} and related data deleted"}
 
 @router.get("/{session_id}/messages")
 def get_session_messages(

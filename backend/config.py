@@ -15,4 +15,4 @@ class Config:
     TEMPERATURE = 0.7
     CONTEXT_WINDOW = 2048
 
-    DATABASE_URL = "sqlite:///./rag_llm.db"
+    DATABASE_URL = "sqlite:///./data/database.db"
