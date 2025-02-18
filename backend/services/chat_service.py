@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from models.session import Session as ChatSession
 from models.session_message import SessionMessage
 from services.llm_service import LLMService
-from services.RAGService import RAGService  # <-- import your RAG layer
 
 class ChatService:
     def __init__(self):

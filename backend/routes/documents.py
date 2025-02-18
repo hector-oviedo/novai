@@ -9,7 +9,7 @@ from database import get_db
 from security import get_current_user_id
 from models.document import Document
 from models.session_document import SessionDocument
-from services.RAGService import RAGService  # <-- import here
+#from rag.rag_service import RAGService  # <-- import here
 
 router = APIRouter()
 
@@ -66,7 +66,7 @@ async def upload_document(
     db.refresh(new_doc)
 
     # 3) Also call RAG ingest
-    RAGService.ingest_document(db, doc_id, text_str)
+    #RAGService.ingest_document(db, doc_id, text_str)
 
     return {
         "message": "Document uploaded",
@@ -101,7 +101,7 @@ def delete_document(
     db.commit()
 
     # Also remove from RAG store
-    rag_service.remove_document(doc_id)
+    #rag_service.remove_document(doc_id)
 
     return {"message": "Document deleted"}
 
