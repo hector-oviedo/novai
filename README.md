@@ -212,8 +212,40 @@ The frontend is configured to talk to ``http://localhost:8000`` by default (adju
 
 ## Screenshots
 
+**Register / Log In**
 
-*(Screenshots will be added in future commits)*
+
+<img src="screenshots/register.jpg" width="300">
+<img src="screenshots/login.jpg" width="300">
+
+
+**Chat / Inference**
+
+
+<img src="screenshots/chat_thinking.jpg" width="600">
+<img src="screenshots/chat_table.jpg" width="600">
+<img src="screenshots/chat_snippet.jpg" width="600">
+<img src="screenshots/chat_thinking.jpg" width="600">
+
+
+**Chat / Inference - Light theme**
+
+
+<img src="screenshots/chat_light.jpg" width="600">
+
+
+**Sessions Manager**
+
+
+<img src="screenshots/sessions.jpg" width="600">
+
+<img src="screenshots/session_docs.jpg" width="600">
+
+
+**Managers**
+
+
+<img src="screenshots/docs.jpg" width="600">
 
 ---
 
