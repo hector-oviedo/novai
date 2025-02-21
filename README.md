@@ -1,28 +1,60 @@
 # Nov.AI (in Development)
 
-Nov.AI is a **local** RAG (Retrieval Augmented Generation) system built with FastAPI (Python), leveraging `llamaindex` and `ollama` to run a local Large Language Model (deepseek-r1:1.5b). It also features:
+Nov.AI is a **local** RAG (Retrieval Augmented Generation) system built with FastAPI (Python), leveraging partially `llamaindex` and `ollama` to run a local Large Language Model (deepseek-r1:1.5b). It also features:
 - JWT-based authentication (user registration & login).
 - Multi-session chat with persistent memory.
 - Document management (upload, attach, remove).
-- (Planned) RAG-based retrieval from a vector database of user documents.
-- (Planned) Function calling/tools system to extend the LLM's capabilities.
+- RAG-based retrieval from a local Chroma database (using manual chunking/embedding).
+- (Planned) Function calling/tools system.
 
 ## Table of Contents
 1. [Project Status](#project-status)
 2. [Features](#features)
 3. [Project Structure](#project-structure)
-4. [Installation & Setup](#installation--setup)
-5. [Running the Project](#running-the-project)
-6. [Backend Endpoints Overview](#backend-endpoints-overview)
-7. [Frontend](#frontend)
-8. [Future Improvements](#future-improvements)
+4. [RAG Implementation Details & LlamaIndex](#rag-implementation-&-llamaindex)
+5. [Installation & Setup](#installation--setup)
+6. [Running the Project](#running-the-project)
+7. [Backend Endpoints Overview](#backend-endpoints-overview)
+8. [Frontend](#frontend)
 9. [Screenshots](#screenshots)
 
 ---
 
 ## Project Status
-- **In Development**: Some features are not yet fully implemented (e.g., complete RAG integration, advanced function calling, incomplete-message manager).
-- The system currently runs locally with `ollama` (on the default port `11434`).
+
+- **In Development**  
+  - The system runs locally with `ollama` on port `11434`.
+  - **Accomplished**:
+    - Chain-of-thought (CoT) model running locally.
+    - RAG with persistent ChromaDB storage.
+    - Security layer (JWT-based).
+    - Document management (upload, attach/detach).
+    - Session management (multiple chat sessions, persistent conversations).
+  - **In Progress**:
+    - More granular message management inside each session (edit, update, remove).
+    - Function calling implementation (currently dummy).
+  - **Missing/Planned Improvements**:
+    - Better error handling in streaming (currently requires page refresh to show error).
+    - Blocking UI during document upload until the backend responds.
+    - Auto-refresh when sessions expire, so UI updates without manual reload.
+---
+
+## RAG Implementation & LlamaIndex
+
+Originally planned to let LlamaIndex handle all the chunking, embedding, and retrieval for a typical RAG setup. However, due to the complexity of requirements—multiple user sessions, documents that can be attached/detached at runtime, plus a persistent SQL-based & persistent vector-storage document manager, opted for a more manual approach:
+
+- **Manual Chunking & Embedding**: Split each uploaded document into chunks and embed them with a HuggingFace model. These chunks/embeddings are then stored in a local Chroma database.
+- **Selective Retrieval**: During chat inference, if a user’s session has documents attached, only query the subset of chunks whose `doc_id` is in the session’s attached list.
+- **LlamaIndex Usage**: Still rely on LlamaIndex for:
+  - The Ollama integration, which lets stream local LLM responses (our `LLMService`).
+  - The HuggingFace embedding model class (`HuggingFaceEmbedding`) for generating embeddings.
+  - The message memory system.
+  
+By handling chunking and storage without llamaindex,attach or detach documents per session is more direct. This does limit some of LlamaIndex’s built-in features like dynamic re-chunking, rewriting, and hierarchical indexes. In future projects, leverage LlamaIndex’s full indexing pipeline for a simpler end-to-end RAG solution will be considered.
+
+## RAG Debug Endpoints
+
+Exposed an internal set of routes under `/rag/` purely for **debugging and research**. These endpoints let inspect exactly how storing and retrieving text chunks/embeddings in is stored in Chroma. Not intended for production use!
 
 ---
 
@@ -36,21 +68,24 @@ Nov.AI is a **local** RAG (Retrieval Augmented Generation) system built with Fas
    - Each session stores chat messages (user & assistant).
    - Messages are saved in a local database, so they persist across restarts.
 
-3. **Documents**  
+3. **Documents (RAG)**  
    - Users can upload documents.
-   - Documents can be attached/detached from any chat session (symbolic for now, planned for RAG).
-   - Documents have an optional name & description.
+   - Documents can be attached/detached from any chat session.
+   - RAG is integrated via a local Chroma database.
+   - Documents are chunked and embedded upon upload, and then retrieved during inference.
 
 4. **Tools (Function Calling)**  
-   - Basic structure to load available tools (e.g., Weather, Internet, etc.).
-   - Tools can be attached/detached to sessions (again symbolic for now).
+   - Basic structure to load available tools (e.g., Weather, Internet, etc.) Dummy for now.
+   - Tools can be attached/detached to sessions (symbolic for now).
 
-5. **Security Layer**  
-   - JWT-based auth via **HttpOnly** cookies.
-   - A session expiry mechanism is in place (subject to refinement).
+5. **Local LLM**  
+   - Powered by `llamaindex` + `ollama` for local inference.  
+   - Uses an open-source CoT (chain-of-thought) model: **deepseek-r1:1.5b**.
 
-6. **Local LLM**  
-   - Uses `llamaindex` with an `ollama`-based local server for the LLM.
+6. **Frontend**  
+   - Streams tokens in real-time, including *thinking* content.  
+   - Supports Markdown, tables, code snippet blocks, and a responsive UI.  
+   - Implements add/remove/list for sessions, documents, and (static) function tools.
 
 ---
 
@@ -62,6 +97,7 @@ Nov.AI is a **local** RAG (Retrieval Augmented Generation) system built with Fas
    - config.py <-- Configuration parameters
    - security.py <-- JWT token creation/verification
    - database.py <-- SQLAlchemy engine & session
+   - rag/ <-- RAG system (database modificarion, query, etc.)
    - models/ <-- Database models (User, Session, Documents, etc.)
    - routes/ <-- FastAPI route definitions (auth, chat, sessions, tools, documents)
    - services/ <-- Core logic: chat_service, memory_service, LLM service, RAG service
@@ -69,7 +105,6 @@ Nov.AI is a **local** RAG (Retrieval Augmented Generation) system built with Fas
    - create_tables.py <-- Utility script to initialize DB schema
    - seed_tools.py <-- (Optional) Template for seeding function-calling tools
 
-   
 ---
 
 ## Installation & Setup
@@ -77,7 +112,6 @@ Nov.AI is a **local** RAG (Retrieval Augmented Generation) system built with Fas
 **Prerequisites**:
 - Python 3.9+ (recommend using Conda environment).
 - `ollama` installed and running locally (on default port 11434).
-- (Optional) MySQL or SQLite (by default uses local SQLite file `database.db`).
 
 **1) Create and activate a Conda environment** (example command):
 ```bash
@@ -87,7 +121,7 @@ conda activate novai
 
 **2) Install required Python packages**:
 ```bash
-pip install fastapi uvicorn sqlalchemy pydantic python-jose "llamaindex>=0.12.15" ...
+pip install fastapi uvicorn sqlalchemy pydantic python-jose llamaindex ...
 ```
 
 *(Check the `requirements.txt` or your internal reference for the complete list.)*
@@ -104,7 +138,7 @@ This creates the necessary tables in the local `database.db`.
 python seed_tools.py
 ```
 
-This inserts some sample tools for the function-calling demonstration.
+This inserts some sample dummy tools for the function-calling demonstration.
 
 ---
 
@@ -173,27 +207,6 @@ npm run dev
 ```
 
 The frontend is configured to talk to ``http://localhost:8000`` by default (adjust if needed).
-
----
-
-## Future Improvements
-
-1. **RAG**  
-   - Actual ingestion to a vector database (e.g., Faiss, Chroma, or weaviate).
-   - Combining documents with LLM context dynamically during inference.
-
-2. **Function Calling**  
-   - Implement actual code to handle calls to external APIs or modules.
-   - Currently, it’s symbolic: user can attach/detach predefined tools.
-
-3. **Incomplete Messages Manager**  
-   - Ability to edit or remove older messages from a session.
-
-4. **Security/Session Handling**  
-   - Fine-tune JWT expiration and security measures (session refresh).
-
-5. **Docker/Production**  
-   - Full Docker Compose setup for the entire stack (ollama, FastAPI, DB, etc.).
 
 ---
 

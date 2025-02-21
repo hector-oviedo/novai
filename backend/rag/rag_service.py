@@ -1,6 +1,5 @@
-# File: rag/rag_service.py
 from rag.rag_vector_storage import ChromaDBHandler
-from rag.rag_engine import query_with_llama
+from rag.rag_engine import rag_query
 
 # Instantiate one persistent vector store handler
 vector_storage = ChromaDBHandler()
@@ -17,9 +16,11 @@ def get_chunks(doc_id: str):
 def get_embeddings(doc_id: str):
     return vector_storage.get_embeddings(doc_id)
 
-def query(prompt: str, docs: list):
-    # Gather all document chunks for the given doc_ids.
-    documents = vector_storage.get_documents_for_ids(docs)
-    if not documents:
-        return {"result": "No documents found for given doc_ids."}
-    return query_with_llama(prompt, documents)
+def list_documents():
+    return vector_storage.list_documents()
+
+def clean_database():
+    return vector_storage.clean_database()
+
+def query(prompt: str, doc_ids: list):
+    return rag_query(vector_storage, prompt, doc_ids)

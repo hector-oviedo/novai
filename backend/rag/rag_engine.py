@@ -1,26 +1,23 @@
-# File: rag/rag_engine.py
-from llama_index.core import Document, StorageContext, VectorStoreIndex, Settings
-from llama_index.vector_stores.chroma import ChromaVectorStore
+# rag_engine.py
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from typing import List
 
-def query_with_llama(prompt: str, docs: list):
-    # Convert dict docs to LlamaIndex Document objects.
-    documents = [
-        Document(text=doc["text"], metadata={"doc_id": doc["doc_id"], "chunk_index": doc["chunk_index"]})
-        for doc in docs
-    ]
-    embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
-    import chromadb
-    db = chromadb.PersistentClient(path="./data/chroma_db")
-    collection = db.get_or_create_collection(name="rag_collection")
-    vector_store = ChromaVectorStore(chroma_collection=collection)
-    storage_context = StorageContext.from_defaults(vector_store=vector_store)
-    index = VectorStoreIndex.from_documents(documents, storage_context=storage_context, embed_model=embed_model)
-    
-    # Disable the global LLM so that synthesis is skipped.
-    Settings.llm = None
+def rag_query(vector_storage, prompt: str, doc_ids: List[str]):
+    # 1. Embed prompt
+    embed_model = vector_storage.embed_model  # same HuggingFaceEmbedding
+    prompt_embedding = embed_model.get_text_embedding(prompt)
 
-    # Use retrieval-only mode.
-    query_engine = index.as_query_engine(llm=None)
-    response = query_engine.query(prompt)
-    return {"result": str(response)}
+    # 2. Filter for doc_ids
+    where_clause = {"doc_id": {"$in": doc_ids}} if doc_ids else {}
+
+    # 3. Query top-k relevant chunks
+    results = vector_storage.collection.query(
+        query_embeddings=[prompt_embedding],
+        n_results=3,
+        where=where_clause,
+        include=["documents"]
+    )
+
+    # 4. Return concatenated retrieved text
+    retrieved_chunks = results["documents"][0] if results and results.get("documents") else []
+    return "\n\n".join(retrieved_chunks)

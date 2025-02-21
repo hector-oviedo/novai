@@ -1,13 +1,16 @@
-# services/chat_service.py
-
+# File: services/chat_service.py
 import uuid
 import json
 from typing import Optional
 from sqlalchemy.orm import Session
+from utils.logger import get_logger
 
 from models.session import Session as ChatSession
 from models.session_message import SessionMessage
 from services.llm_service import LLMService
+from rag import rag_service
+
+logger = get_logger(__name__)
 
 class ChatService:
     def __init__(self):
@@ -32,31 +35,41 @@ class ChatService:
           6) Store final assistant message
         """
 
-        # 1) get or create session
+        # 1) Get or create session
         session_obj = self._get_or_create_session(db, user_id, session_id)
 
         # 2) Insert the user's new message
         self._add_user_message(db, session_obj.session_id, user_message)
+
+        # 3) Check for attached documents and, if any, retrieve context via RAG.
+        from models.session_document import SessionDocument
+        attached = db.query(SessionDocument).filter(SessionDocument.session_id == session_id).all()
+        doc_ids = [att.document_id for att in attached]
+        logger.debug(f"Session {session_id} attached doc_ids: {doc_ids}")
+
+        # Retrieve context if docs attached
+        if doc_ids:
+            rag_context = rag_service.query(user_message, doc_ids)
+            if rag_context:
+                self._add_system_message(db, session_obj.session_id, f"Relevant info:\n{rag_context}")
+
+        # 4) Stream from LLM, passing the entire conversation (user + system + older messages)
+        token_generator = self.llm_service.stream_infer(db, session_id)
 
         # Prepare buffers for final assistant text
         public_buffer = []
         think_buffer = []
         in_think_mode = False
 
-        # 4) Stream from LLM, passing the entire conversation (user + system + older messages)
-        token_generator = self.llm_service.stream_infer(db, session_id)
-
         for token in token_generator:
             # 4a) Check if it's an LLM error token
             if token.startswith("LLMError:"):
                 error_msg = token.replace("LLMError:", "").strip()
-                # yield an "error" chunk
                 yield self._json_chunk("error", error_msg)
-                # store error in DB
                 self._add_error_message(db, session_obj.session_id, error_msg)
-                return  # stop streaming entirely
+                return  # Stop streaming entirely
 
-            # 5) Otherwise parse <think> tags for chain-of-thought
+            # 5) Parse <think> tags for chain-of-thought
             cursor = 0
             while cursor < len(token):
                 if not in_think_mode:
@@ -87,19 +100,14 @@ class ChatService:
                         cursor = idx + len("</think>")
                         in_think_mode = False
 
-        # 6) Once streaming finishes, store the final assistant message
+        # 6) Store final assistant message
         final_public = "".join(public_buffer)
         final_think = "".join(think_buffer)
         self._add_assistant_message(db, session_obj.session_id, final_public, final_think)
 
     # -------------- Private Methods --------------
-
     def _get_or_create_session(self, db: Session, user_id: str, session_id: str):
-        sess = (
-            db.query(ChatSession)
-              .filter_by(session_id=session_id, user_id=user_id)
-              .first()
-        )
+        sess = db.query(ChatSession).filter_by(session_id=session_id, user_id=user_id).first()
         if sess:
             return sess
         new_sess = ChatSession(
@@ -113,25 +121,18 @@ class ChatService:
         return new_sess
 
     def _add_user_message(self, db: Session, session_id: str, content: str):
-        """
-        Insert a user message so MemoryService can find it in the DB.
-        """
         msg = SessionMessage(
             session_id=session_id,
             sender="user",
-            content=content or ""  # ensure not None
+            content=content or ""
         )
         db.add(msg)
         db.commit()
 
     def _add_system_message(self, db: Session, session_id: str, snippet: str):
-        """
-        Insert a 'system' message with the RAG snippet. 
-        This ensures it appears in the conversation before the LLMService is called.
-        """
         msg = SessionMessage(
             session_id=session_id,
-            sender="system",    # or "assistant" if you prefer
+            sender="system",
             content=snippet or "",
             think=""
         )
@@ -149,9 +150,6 @@ class ChatService:
         db.commit()
 
     def _add_error_message(self, db: Session, session_id: str, error_text: str):
-        """
-        Insert an 'error' message in DB so we track inference errors in the conversation.
-        """
         msg = SessionMessage(
             session_id=session_id,
             sender="error",

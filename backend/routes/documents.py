@@ -9,7 +9,7 @@ from database import get_db
 from security import get_current_user_id
 from models.document import Document
 from models.session_document import SessionDocument
-#from rag.rag_service import RAGService  # <-- import here
+from rag import rag_service  # Import your rag service
 
 router = APIRouter()
 
@@ -31,7 +31,7 @@ def list_documents(
             "id": d.id,
             "name": d.name,
             "description": d.description,
-            "content": d.content,
+            "filename": d.filename,
             "sessions": session_ids
         })
     return result
@@ -59,14 +59,14 @@ async def upload_document(
         user_id=user_id,
         name=name,
         description=description,
-        content=file.filename  # still storing the filename in 'content' col
+        filename=file.filename
     )
     db.add(new_doc)
     db.commit()
     db.refresh(new_doc)
 
-    # 3) Also call RAG ingest
-    #RAGService.ingest_document(db, doc_id, text_str)
+    # 3) Also ingest document into RAG system
+    rag_service.upload_document(doc_id, text_str)
 
     return {
         "message": "Document uploaded",
@@ -100,8 +100,8 @@ def delete_document(
     db.delete(doc)
     db.commit()
 
-    # Also remove from RAG store
-    #rag_service.remove_document(doc_id)
+    # Also remove from RAG vector store
+    rag_service.delete_document(doc_id)
 
     return {"message": "Document deleted"}
 

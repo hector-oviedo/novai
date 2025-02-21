@@ -39,7 +39,7 @@ class LLMService:
                 # Safeguard in case content is None
                 content_str = m.content if m.content is not None else ""
                 snippet = (content_str[:80] + "...") if len(content_str) > 80 else content_str
-                logger.debug(f"[{i}] role={m.role}, content={snippet}")
+                # logger.debug(f"[{i}] role={m.role}, content={snippet}")
 
             # 2) Stream partial tokens
             response_gen = self.ollama_llm.stream_chat(messages)

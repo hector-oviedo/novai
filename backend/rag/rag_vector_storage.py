@@ -1,4 +1,3 @@
-# File: rag/rag_vector_storage.py
 import os
 import uuid
 import chromadb
@@ -33,6 +32,7 @@ class ChromaDBHandler:
         return {"status": "success", "doc_id": doc_id, "chunks_added": len(chunks)}
 
     def delete_document(self, doc_id: str):
+        # Delete all entries where doc_id equals the provided value
         self.collection.delete(where={"doc_id": doc_id})
         return {"status": "success", "doc_id": doc_id}
 
@@ -43,7 +43,6 @@ class ChromaDBHandler:
     def get_embeddings(self, doc_id: str):
         res = self.collection.get(where={"doc_id": doc_id}, include=["embeddings"])
         embeddings = res.get("embeddings", [])
-        # Convert each embedding to a list if needed
         processed = []
         for emb in embeddings:
             try:
@@ -52,12 +51,27 @@ class ChromaDBHandler:
                 processed.append(emb)
         return processed
 
-    def get_documents_for_ids(self, doc_ids: list):
-        docs = []
-        for d_id in doc_ids:
-            res = self.collection.get(where={"doc_id": d_id}, include=["documents", "metadatas"])
-            documents = res.get("documents", [])
-            metadatas = res.get("metadatas", [])
-            for doc, meta in zip(documents, metadatas):
-                docs.append({"text": doc, "doc_id": meta.get("doc_id"), "chunk_index": meta.get("chunk_index")})
-        return docs
+    def list_documents(self):
+        """
+        Returns a list of unique doc_ids present in the vector store.
+        Only considers metadata entries that are dictionaries containing a 'doc_id' key.
+        """
+        res = self.collection.get(include=["metadatas"])
+        metadatas = res.get("metadatas", [])
+        flat = []
+        for item in metadatas:
+            if isinstance(item, list):
+                flat.extend(item)
+            else:
+                flat.append(item)
+        doc_ids = { m["doc_id"] for m in flat if isinstance(m, dict) and "doc_id" in m }
+        return list(doc_ids)
+
+    def clean_database(self):
+        """
+        Completely deletes all entries from the collection.
+        Uses a filter that matches any entry with a non-empty 'doc_id'.
+        """
+        self.collection.delete(where={"doc_id": {"$ne": ""}})
+        return {"status": "success", "message": "All entries deleted"}
+

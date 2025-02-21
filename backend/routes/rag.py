@@ -1,4 +1,3 @@
-# File: routes/rag.py
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from pydantic import BaseModel
 from typing import List
@@ -39,17 +38,31 @@ def query_documents(query: QueryRequest):
     result = rag_service.query(query.prompt, query.docs)
     return result
 
+@router.get("/list", tags=["RAG"])
+def list_documents():
+    result = rag_service.list_documents()
+    return {"documents": result}
+
+@router.delete("/clean", tags=["RAG"])
+def clean_database():
+    result = rag_service.clean_database()
+    return result
+
 # --- To test with Postman:
-# 1. POST http://localhost:8080/rag/upload
+# 1. POST http://localhost:8000/rag/upload
 #    Body (form-data): key: doc_id (text), key: file (file, only .txt)
 #
-# 2. DELETE http://localhost:8080/rag/delete?doc_id=YOUR_DOC_ID
+# 2. DELETE http://localhost:8000/rag/delete?doc_id=YOUR_DOC_ID
 #
-# 3. GET http://localhost:8080/rag/chunks?doc_id=YOUR_DOC_ID
+# 3. GET http://localhost:8000/rag/chunks?doc_id=YOUR_DOC_ID
 #
-# 4. GET http://localhost:8080/rag/embeddings?doc_id=YOUR_DOC_ID
+# 4. GET http://localhost:8000/rag/embeddings?doc_id=YOUR_DOC_ID
 #
-# 5. POST http://localhost:8080/rag/query
+# 5. GET http://localhost:8000/rag/list
+#
+# 6. DELETE http://localhost:8000/rag/clean
+#
+# 7. POST http://localhost:8000/rag/query
 #    Body (raw, JSON):
 #    {
 #       "prompt": "Your query text",

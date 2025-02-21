@@ -13,7 +13,7 @@ class Document(Base):
     user_id = Column(String, index=True)
     name = Column(String, nullable=True)
     description = Column(Text, nullable=True)
-    content = Column(Text, nullable=True)
+    filename = Column(Text, nullable=True)
 
     sessions = relationship("SessionDocument", backref="document", cascade="all, delete")
 
