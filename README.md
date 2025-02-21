@@ -11,7 +11,7 @@ Nov.AI is a **local** RAG (Retrieval Augmented Generation) system built with Fas
 1. [Project Status](#project-status)
 2. [Features](#features)
 3. [Project Structure](#project-structure)
-4. [RAG Implementation Details & LlamaIndex](#rag-implementation-&-llamaindex)
+4. [RAG Implementation Details & LlamaIndex](#rag-implementation--llamaindex)
 5. [Installation & Setup](#installation--setup)
 6. [Running the Project](#running-the-project)
 7. [Backend Endpoints Overview](#backend-endpoints-overview)
