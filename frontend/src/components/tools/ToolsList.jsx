@@ -14,7 +14,7 @@ export const ToolsList = ({ tools }) => {
             <TableCell align="left">Name</TableCell>
             <TableCell align="center">Description</TableCell>
             <TableCell align="center">Rules</TableCell>
-            <TableCell align="right">Sessions</TableCell>
+            {/*<TableCell align="right">Sessions</TableCell>*/}
           </TableRow>
         </TableHead>
         <TableBody>

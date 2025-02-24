@@ -9,12 +9,16 @@ from models.session import Session as ChatSession
 from models.session_message import SessionMessage
 from services.llm_service import LLMService
 from rag import rag_service
+from tools.tool_engine import ToolEngine
+from models.session_tool import SessionTool
+from models.session_document import SessionDocument
 
 logger = get_logger(__name__)
 
 class ChatService:
     def __init__(self):
         self.llm_service = LLMService()
+        self.tool_engine = ToolEngine()
 
     def start_stream_inference(
         self,
@@ -42,7 +46,6 @@ class ChatService:
         self._add_user_message(db, session_obj.session_id, user_message)
 
         # 3) Check for attached documents and, if any, retrieve context via RAG.
-        from models.session_document import SessionDocument
         attached = db.query(SessionDocument).filter(SessionDocument.session_id == session_id).all()
         doc_ids = [att.document_id for att in attached]
         logger.debug(f"Session {session_id} attached doc_ids: {doc_ids}")
@@ -52,6 +55,17 @@ class ChatService:
             rag_context = rag_service.query(user_message, doc_ids)
             if rag_context:
                 self._add_system_message(db, session_obj.session_id, f"Relevant info:\n{rag_context}")
+
+        # 3.5) Tools logic
+        attached_tools = db.query(SessionTool).filter_by(session_id=session_id).all()
+        tool_ids = [t.tool_id for t in attached_tools]
+        logger.debug(f"Session {session_id} attached tool_ids: {tool_ids}")
+        
+        tool_result = self.tool_engine.run_tool_pass(db, session_id, user_message, tool_ids, llm_service=self.llm_service)
+        if tool_result:
+            self._add_assistant_message(db, session_obj.session_id, tool_result, "")
+            yield self._json_chunk("public", tool_result)
+            return
 
         # 4) Stream from LLM, passing the entire conversation (user + system + older messages)
         token_generator = self.llm_service.stream_infer(db, session_id)

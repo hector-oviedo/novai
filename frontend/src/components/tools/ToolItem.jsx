@@ -15,9 +15,7 @@ export const ToolItem = ({ tool }) => {
         <TableCell>
           <ToolRules content={tool.rules}/>
         </TableCell>
-        <TableCell>
-        {tool.toString()}
-        </TableCell>
+        {/*<TableCell>{tool.toString()}</TableCell>*/}
       </TableRow>
     </>
   );

@@ -225,7 +225,6 @@ The frontend is configured to talk to ``http://localhost:8000`` by default (adju
 <img src="screenshots/chat_thinking.jpg" width="600">
 <img src="screenshots/chat_table.jpg" width="600">
 <img src="screenshots/chat_snippet.jpg" width="600">
-<img src="screenshots/chat_thinking.jpg" width="600">
 
 
 **Chat / Inference - Light theme**

@@ -13,7 +13,7 @@ export const DocumentsList = ({ documents }) => {
           <TableRow>
             <TableCell align="left"><Typography fontWeight="bold">Name</Typography></TableCell>
             <TableCell align="center"><Typography fontWeight="bold">Description</Typography></TableCell>
-            <TableCell align="center"><Typography fontWeight="bold">Total Sessions</Typography></TableCell>
+            <TableCell align="center"><Typography fontWeight="bold">Sessions Attached</Typography></TableCell>
             <TableCell align="right"><Typography fontWeight="bold">Actions</Typography></TableCell>
           </TableRow>
         </TableHead>

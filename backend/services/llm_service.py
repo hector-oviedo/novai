@@ -60,3 +60,33 @@ class LLMService:
     def stop_inference(self):
         logger.debug("stop_inference called in LLMService.")
         self.stop_flag = True
+        
+    def single_shot_infer(self, prompt: str, max_retries=2, delay=1.0) -> str:
+        """
+        Calls Ollama for a single response (no streaming). Retries if server times out or JSON is invalid.
+        """
+        logger.debug("[LLMService] single_shot_infer start.")
+        for attempt in range(max_retries):
+            try:
+                # Single chat message context (system style or user style as needed)
+                messages = [ChatMessage(role="system", content=prompt)]
+                response_iter = self.ollama_llm.stream_chat(messages)
+
+                # Since it's single-shot, accumulate all tokens into final text
+                response_text = ""
+                for chunk in response_iter:
+                    if self.stop_flag:
+                        logger.debug("Stop flag triggered in single_shot_infer.")
+                        self.stop_flag = False
+                        break
+                    response_text += chunk.delta
+
+                logger.debug(f"[LLMService] single_shot_infer response: {response_text}")
+                return response_text
+
+            except Exception as e:
+                logger.error(f"[LLMService] single_shot_infer attempt {attempt+1} error: {e}")
+                time.sleep(delay)
+
+        # If all retries fail
+        return ""
