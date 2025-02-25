@@ -5,18 +5,19 @@ Nov.AI is a **local** RAG (Retrieval Augmented Generation) system built with Fas
 - Multi-session chat with persistent memory.
 - Document management (upload, attach, remove).
 - RAG-based retrieval from a local Chroma database (using manual chunking/embedding).
-- (Planned) Function calling/tools system.
+- Function calling/tools system.
 
 ## Table of Contents
 1. [Project Status](#project-status)
 2. [Features](#features)
 3. [Project Structure](#project-structure)
 4. [RAG Implementation Details & LlamaIndex](#rag-implementation--llamaindex)
-5. [Installation & Setup](#installation--setup)
-6. [Running the Project](#running-the-project)
-7. [Backend Endpoints Overview](#backend-endpoints-overview)
-8. [Frontend](#frontend)
-9. [Screenshots](#screenshots)
+5. [Function Calling](#function-calling)
+6. [Installation & Setup](#installation--setup)
+7. [Running the Project](#running-the-project)
+8. [Backend Endpoints Overview](#backend-endpoints-overview)
+9. [Frontend](#frontend)
+10. [Screenshots](#screenshots)
 
 ---
 
@@ -27,16 +28,19 @@ Nov.AI is a **local** RAG (Retrieval Augmented Generation) system built with Fas
   - **Accomplished**:
     - Chain-of-thought (CoT) model running locally.
     - RAG with persistent ChromaDB storage.
+    - Function calling with **three** working tools (local time, weather via OpenWeather, currency conversion via Exchangerates).
     - Security layer (JWT-based).
     - Document management (upload, attach/detach).
     - Session management (multiple chat sessions, persistent conversations).
   - **In Progress**:
-    - More granular message management inside each session (edit, update, remove).
-    - Function calling implementation (currently dummy).
+    - More granular message management inside each session (edit, update, remove messages).
   - **Missing/Planned Improvements**:
-    - Better error handling in streaming (currently requires page refresh to show error).
+    - Better error handling in streaming (currently requires a page refresh).
+    - Env-based API key management (e.g. `.env` or Docker env vars).
     - Blocking UI during document upload until the backend responds.
-    - Auto-refresh when sessions expire, so UI updates without manual reload.
+    - Auto-refresh when sessions expire (no manual reload).
+    - Add test.
+    
 ---
 
 ## RAG Implementation & LlamaIndex
@@ -55,6 +59,34 @@ By handling chunking and storage without llamaindex,attach or detach documents p
 ## RAG Debug Endpoints
 
 Exposed an internal set of routes under `/rag/` purely for **debugging and research**. These endpoints let inspect exactly how storing and retrieving text chunks/embeddings in is stored in Chroma. Not intended for production use!
+
+---
+
+## Function Calling
+
+Function calling implemented, **three** function calls:
+
+1. **Local Time** (`getLocalTime`):  
+   - No external API; simply returns the current system time (hour:minute) plus a phrase (morning/afternoon/night).
+
+2. **Weather Forecast** (`getWeather`):  
+   - Uses the [OpenWeatherMap](https://openweathermap.org/) API.  
+   - Requires an **API key** you place inside `tools/plugins/weather.py`.  
+   - Returns current weather conditions (temperature, description).
+
+3. **Currency Converter** (`convertCurrency`):  
+   - Uses the [Exchangerates](https://exchangeratesapi.io/) API.  
+   - Also needs an **API key**, stored in `tools/plugins/exchange.py`.  
+   - Converts an amount from one currency to another (e.g. `USD` to `EUR`).
+
+**Note**: Currently, **only one** function can be called per user prompt. If a single prompt requests multiple tools (“What's the time, the weather, and convert 50 USD to EUR?”), the LLM typically picks **one**. In the future, thew system can be extended to handle multi-call requests.
+
+Plan to move all API keys and configuration into an `.env` file or a centralized config soon, along with Dockerization and advanced message management. For now, these three calls demonstrate the full end-to-end flow:
+
+1. User requests a function.
+2. LLM outputs JSON specifying `"use_tool": "yes"`, a `tool_id`, and parameters.
+3. Backend calls the matching plugin.
+4. The final result is returned to the chat session.
 
 ---
 
@@ -103,7 +135,7 @@ Exposed an internal set of routes under `/rag/` purely for **debugging and resea
    - services/ <-- Core logic: chat_service, memory_service, LLM service, RAG service
    - utils/logger.py <-- Central logger setup
    - create_tables.py <-- Utility script to initialize DB schema
-   - seed_tools.py <-- (Optional) Template for seeding function-calling tools
+   - seed_tools.py <-- Template for seeding function-calling tools
 
 ---
 

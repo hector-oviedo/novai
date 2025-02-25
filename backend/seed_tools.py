@@ -13,24 +13,6 @@ init_db()
 tools_data = [
     {
         "id": str(uuid.uuid4()),
-        "name": "Internet Search",
-        "description": "Executes an internet search using a user-provided query.",
-        "rules": """
-{
-  "function_call": "internetSearch",
-  "description": "Search the internet for relevant results. Rate-limited to prevent abuse.",
-  "parameters": {
-    "type": "object",
-    "properties": {
-      "query": { "type": "string", "description": "The user search query" }
-    },
-    "required": ["query"]
-  }
-}
-"""
-    },
-    {
-        "id": str(uuid.uuid4()),
         "name": "Weather Forecast",
         "description": "Retrieves current weather and a short forecast for the specified location.",
         "rules": """
@@ -49,43 +31,37 @@ tools_data = [
     },
     {
         "id": str(uuid.uuid4()),
-        "name": "Location Lookup",
-        "description": "Provides information about a specified location (country, city).",
+        "name": "What time is it?",
+        "description": "Returns the current local time (hour:minute) and whether it's morning, afternoon, or night.",
         "rules": """
 {
-  "function_call": "lookupLocation",
-  "description": "Get details like timezone, population, landmarks.",
+  "function_call": "getLocalTime",
+  "description": "Returns the current local time (hour:minute) and whether it's morning, afternoon, or night.",
   "parameters": {
     "type": "object",
     "properties": {
-      "place": { "type": "string", "description": "City name, country, or coordinates" }
     },
-    "required": ["place"]
+    "required": []
   }
 }
 """
     },
     {
         "id": str(uuid.uuid4()),
-        "name": "System Notification",
-        "description": "Sends a local or push notification to the user’s device.",
+        "name": "Currency Converter",
+        "description": "Converts an amount from one currency to another.",
         "rules": """
 {
-  "function_call": "sendNotification",
-  "description": "Sends a system notification with a title and message body.",
+  "function_call": "convertCurrency",
+  "description": "Converts an amount from one currency to another (e.g. USD to EUR).",
   "parameters": {
     "type": "object",
     "properties": {
-      "title": {
-        "type": "string",
-        "description": "Short headline for the notification"
-      },
-      "message": {
-        "type": "string",
-        "description": "The main notification content"
-      }
+      "from_currency": { "type": "string", "description": "3-letter code for currency to convert from (e.g. 'USD')." },
+      "to_currency": { "type": "string", "description": "3-letter code for currency to convert to (e.g. 'EUR')." },
+      "amount": { "type": "number", "description": "The amount to be converted." }
     },
-    "required": ["title","message"]
+    "required": ["from_currency","to_currency","amount"]
   }
 }
 """

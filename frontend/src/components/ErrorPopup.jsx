@@ -1,7 +1,13 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Box } from "@mui/material";
+import { useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa"; // Warning icon
 
-export const ErrorPopup = ({ open, onClose, error }) => {
+export const ErrorPopup = ({ open, onClose, error}) => {
+  if (!error) return null;
+
+  const code = error.code || "unknown";
+  const message = error.message || "unknown";
+  const description = error.description || null;
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, color: "error.main" }}>
@@ -9,19 +15,19 @@ export const ErrorPopup = ({ open, onClose, error }) => {
         Error
       </DialogTitle>
       <DialogContent>
-        {error.code && (
+        {code && (
           <Typography variant="body1">
-            <strong>Code:</strong> {error.code}
+            <strong>Code:</strong> {code}
           </Typography>
         )}
-        {error.message && (
+        {message && (
           <Typography variant="body1">
-            <strong>Message:</strong> {error.message}
+            <strong>Message:</strong> {message}
           </Typography>
         )}
-        {error.description && (
+        {description && (
           <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
-            {error.description}
+            {description}
           </Typography>
         )}
       </DialogContent>

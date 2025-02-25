@@ -25,7 +25,26 @@ export const RegisterPage = ({ toggleAuth }) => {
     try {
       await dispatch(signUpUser({ username, password, email })).unwrap();
     } catch (err) {
-      setError(err);
+      // Fallbacks
+      let code = err.code || "unknown";
+      let message = err.message || String(err);
+      let description = null;
+
+      // If the server returns an array in `description`
+      if (Array.isArray(err.description) && err.description.length > 0) {
+        // Possibly collect all "msg" fields
+        const detailMessages = err.description
+          .map((item) => item.msg || "")
+          .filter(Boolean);
+        description = detailMessages.join(", ");
+      }
+      // Fallback: if you wanted to also check err.msg or err.ctx, do so here
+
+      setError({
+        code,
+        message,
+        description,
+      });
       onResetForm();
     } finally {
       setLoading(false); // Re-enable form after request completes
@@ -51,7 +70,7 @@ export const RegisterPage = ({ toggleAuth }) => {
           <Grid item xs={12}>
             <TextField
               type="email"
-              label="E-mail (optional)"
+              label="E-mail"
               name="email"
               value={email}
               onChange={onInputChange}
@@ -88,7 +107,7 @@ export const RegisterPage = ({ toggleAuth }) => {
           </Typography>
         </Grid>
 
-        <ErrorPopup open={!!error} onClose={() => setError(null)} error={error || {}} />
+        <ErrorPopup open={!!error} onClose={() => setError(null)} error={error} />
       </form>
     </AuthLayout>
   );
